@@ -1,0 +1,191 @@
+---
+title: "HW: Week 5"
+author: "36-350 -- Statistical Computing"
+date: "Week 5 -- Spring 2021"
+output:
+  pdf_document:
+    toc: no
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+---
+
+Name: Jacky LIu
+
+Andrew ID: jackyl1
+
+You must submit **your own** lab as a PDF file on Gradescope.
+
+```{r wrap-hook,echo=FALSE}
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  knitr::opts_chunk$set(linewidth = 80)
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+```
+
+---
+
+```{r,messages=FALSE}
+suppressWarnings(library(tidyverse))
+```
+
+---
+
+## Question 1
+*(10 points)*
+
+An alternative to `read.table()` and such is the `scan()` function. The `scan()` function is *very* handy, particularly when someone gives you weirdly formatted text data files. (Maybe groups of unequal-length rows map to one record, etc., etc.) In this problem, use `scan()` to read in `simple.txt` (which you downloaded for Lab 5) and then post-process what you've read in to create a data frame with correct column names and correct data types (`character` for the `name` column and `double` for all the other columns). Your final step will be to print out the data frame. Look at the documentation for `scan()` and pay particular attention to the `what` argument. Once you've scanned the data, use a combination of, e.g., `matrix()` and `data.frame()` to bend the data to your will, and then cast the data in columns 2 through 8 to `numeric`. Hint: `t()` transposes a matrix. Also, pass `stringsAsFactors=FALSE` as an argument to `data.frame()`.
+```{r linewidth=80}
+data = scan(file = "simple.txt", what=character(), sep=' ')
+data = matrix((data), nrow=8,ncol=10)
+colnames = data[,1]
+data = as.data.frame(t(data[,-1]),stringsAsFactors=FALSE)
+names(data) = colnames
+# cast cols 2-8 as numeric
+for(i in 2:ncol(data)){
+  data[,i] = as.numeric(data[,i])
+}
+print(data)
+```
+
+## Question 2
+*(10 points)*
+
+Let's up the ante a bit here. Download `branch.txt` from the `DATA` directory on Canvas. Examine it with an external viewer. This one's a bit of a mess. (Welcome to real-world data.) Construct a data frame from these data. Assume all the columns are character (there is no need in this exercise to do a final cast of the numeric columns to numeric type). To read in the data themselves, I'd advise you to use `scan()` while skipping the first line and using "|" as the separator. (See the documentation for `scan()`.) To make the data frame, you could use a combination of `matrix()` and `data.frame()` as in Q1, but before doing do, clean up your strings: replace all tab symbols (`\t`) with empty strings, and replace any leading spaces and trailing spaces with empty strings. (Hint: `gsub()`.) Note that the data comprise 14 columns and 39 rows (not including the header). 
+
+Getting the column names is a bit trickier: they are separated by `|_.`, which `scan()` cannot handle. So I'd advise you to use `scan()` to read in *just the first line* (use `\n` as a separator; see the argument `n`), then use `strsplit()` to split the line into 14 column names. You might have to "escape" (i.e., apply double backslashes) some or all of the characters used in splitting. Again, clean things up: get rid of `\t` symbols and trailing spaces.
+
+In the end, display the first four columns and first six rows of your beautiful data frame, rising like a phoenix from the ashes of the terribly formatted ASCII file that you began with.
+```{r linewidth=80}
+branch = scan(file = "branch.txt", what=character(), sep='|', skip=1)
+branch.notabs = gsub("\t", "", branch)
+branch.frame = as.data.frame(t(matrix(branch.notabs, ncol = 39)),stringsAsFactors=FALSE)
+
+colnames_string = scan(file = "branch.txt", what=character(), sep="\n")[1]
+colnames_notabs = gsub("\t", "", colnames_string)
+colnames_vec = unlist(strsplit(colnames_notabs, split="\\|\\_"))
+colnames(branch.frame) = colnames_vec
+#colnames(branch.frame) = sub("^\\s+|\\s+$", "", branch.frame)
+head(subset(branch.frame, select = c(1,2,3,4)), n=6)
+```
+
+## Question 3
+*(10 points)*
+
+Read in data from `https://download.bls.gov/pub/time.series/ap/ap.data.0.Current`, which are housed at the Bureau of Labor Statistics. Note before you start that the data are *tab delimited*, and you might find it helpful to remember that a tab is denoted `\t` in a string. The data may not read in cleanly with a simple function call; you may need to skip the header, in which case you will need to provide column names yourself. Also, the parser may misidentify column types, so you may have to set those too. And...you may have to cast data in some columns to be of proper type, after the reading in of the data is done. (Data wrangling is a messy business.) Once everything is read in and cast to (if necessary) proper type, display the mean and standard deviation of the data in the value column for every year *after* 2009 (i.e., 2010 and later). The tidyverse will help you here. Hint: `group_by()`.
+```{r linewidth=80}
+library(tidyverse)
+bls = read.table("https://download.bls.gov/pub/time.series/ap/ap.data.0.Current", skip=1, sep="\t")
+bls[,1] = as.character(bls[,1])
+bls[,2] = as.integer(bls[,2])
+bls[,3] = as.character(bls[,3])
+bls[,4] = as.numeric(as.character(bls[,4]))
+colnames(bls) = c("series_id", "year", "period", "value", "footnote_codes")
+bls_subset = subset(bls, year > 2009)
+```
+Mean:
+```{r}
+mean(bls_subset$value, na.rm=TRUE)
+```
+Standard Deviation:
+```{r}
+sd(bls_subset$value, na.rm=TRUE)
+```
+
+## Question 4
+*(10 points)*
+
+Download `planets.csv` from the Canvas site. It is in the Week 7 directory. Use an external viewer (your choice) to look at the file. Then apply an appropriate function to read the file's contents into `R`. Your goal: to determine what proportion of the columns have data in at least 20% of their rows. (In other words, step from column to column and see if the proportion of `NA`'s is less than 80%. Then determine the proportion of the columns that fulfill this condition.) Your final answer should be 82.86% [or 0.8286].
+```{r linewidth=80}
+proportion_NA = function(col) {
+  count = 0
+  for(entry in col){
+    if(is.na(entry)){
+      count = count + 1
+    }
+  }
+  return(count/length(col))
+}
+
+planets = read.csv("planets.csv", skip=73, sep=",", na.strings=c("",NA))
+count = 0
+for(i in 1:ncol(planets)){
+  if(proportion_NA(planets[,i]) < 0.8){
+    count = count + 1
+  }
+}
+print(count/ncol(planets))
+```
+The answer is 0.8286.
+
+
+## Question 5
+*(10 points)*
+
+Make a data frame that is in essence a "dictionary" for the data in the `planets.csv` file. What this means is: extract those lines of the file that contain variable names and corresponding definitions, and from those lines extract the variable names into a vector called `variable` and the definitions into a vector called `definition`. Output the first six rows only! (Hint: in your call to `data.frame()`, set the argument `stringsAsFactors` to `FALSE`. This changes the column contents to character strings rather than factor variables.) Hint: let's say you do an `strsplit()` to split the variable from the definition in each line. The output will be a list, with one list element for each line that contains two strings, one for the variable and one for the definition. A handy way to extract all of the variables would be, e.g., <tt>sapply(&lt;output from strplit&gt;,`[[`,1)</tt>. That `[[` function is really useful.
+```{r linewidth=80}
+planetdict = read.csv("planets.csv", stringsAsFactors=FALSE)
+planetdict = slice(planetdict, 3:71)
+variable = vector(mode="character", length=length(planetdict))
+definition = vector(mode="character", length=length(planetdict))
+for(row in planetdict){
+  row = gsub("# COLUMN ", "", row)
+  row = gsub(":", "", row)
+  row = unlist(strsplit(row, "\\s{2,}"))
+}
+for(i in 1:length(row)){
+  if(i %% 2 == 1){
+    variable[(i+1)/2] = row[i]
+  }
+  else{
+    definition[i/2] = row[i]
+  }
+}
+final = data.frame(variable, definition, stringsAsFactors=FALSE)
+head(final, n=6)
+```
+
+## Question 6
+*(10 points)*
+
+Extract the 2020 Major League Baseball standings from the web site given below and put them into a *single* data frame that contains all 30 MLB teams, with the first column being the team name, the second column being the number of wins, and the third column being the number of losses. Order the data frame by decreasing number of wins. Use `rvest` functions to extract any tables you need, which are of class `data.frame`, and then process the data frames until you get a single one as described above.
+```{r linewidth=80}
+if ( require(rvest) == FALSE ) {
+  install.packages("rvest",repos="https://cloud.r-project.org")
+  library(rvest)
+}
+
+site = read_html("https://www.baseball-reference.com/leagues/MLB-standings.shtml")
+pattern = '>[A-z]{0,20}</a></strong></th><td class="right " data-stat="[A-Z]" ><strong>40</strong></td><td class="right " data-stat="[A-Z]" ><strong>20</strong>'
+pattern2 = '<a href="/teams/[A-Z]{2,5}/2020.shtml" title="[A-z| ]{2,20}">'
+reg.exp = regexpr(pattern, site)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
