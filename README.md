@@ -1,2 +1,2 @@
 # 36-350
-statistical computing
+statistical computing (R and Postgresql)
